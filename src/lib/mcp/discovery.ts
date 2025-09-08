@@ -77,13 +77,14 @@ export class McpDiscoveryService {
   ]
 
   // Serveurs MCP connus pour tests
-  // 🛡️ SECURITY: Updated to HTTPS only (Jules CATA-006)
+  // 🛡️ GEMINI RECOMMENDATION 2: Environment-dependent protocol selection
   private readonly knownServers = [
-    'https://localhost:8051', // Archon
-    'https://localhost:8052', // Context7
-    'https://localhost:8053', // Serena
-    'https://localhost:8054', // GitHub MCP
-    'https://localhost:8055', // Jules
+    // Use HTTP in dev, HTTPS in prod for local servers
+    `${process.env.NODE_ENV === 'production' ? 'https' : 'http'}://localhost:8051`, // Archon
+    `${process.env.NODE_ENV === 'production' ? 'https' : 'http'}://localhost:8052`, // Context7
+    `${process.env.NODE_ENV === 'production' ? 'https' : 'http'}://localhost:8053`, // Serena
+    `${process.env.NODE_ENV === 'production' ? 'https' : 'http'}://localhost:8054`, // GitHub MCP
+    `${process.env.NODE_ENV === 'production' ? 'https' : 'http'}://localhost:8055`, // Jules
   ]
 
   static getInstance(): McpDiscoveryService {
@@ -140,7 +141,8 @@ export class McpDiscoveryService {
 
       // Test common ports on localhost
       for (const port of portRanges) {
-        const url = `https://localhost:${port}`
+        const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http'
+        const url = `${protocol}://localhost:${port}`
         if (!urls.includes(url)) {
           urls.push(url)
         }
@@ -148,7 +150,8 @@ export class McpDiscoveryService {
 
       // Test 127.0.0.1 variants
       for (const port of portRanges.slice(0, 5)) { // Limit to avoid too many tests
-        urls.push(`https://127.0.0.1:${port}`)
+        const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http'
+        urls.push(`${protocol}://127.0.0.1:${port}`)
       }
     }
 

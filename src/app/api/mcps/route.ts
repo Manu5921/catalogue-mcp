@@ -12,6 +12,7 @@ import { mcpDiscoveryService } from '@/lib/mcp/discovery'
 import { mcpHealthMonitor } from '@/lib/mcp/health-monitor'
 import type { GetMcpsResponse, PaginatedResponse } from '@/types/api'
 import type { McpServerSummary } from '@/types/api'
+import { createSecureErrorResponse, ApiErrorTypes } from '@/utils/api-errors'
 
 // Cache pour les résultats de découverte
 let discoveryCache: {
@@ -191,16 +192,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     })
 
   } catch (error) {
-    console.error('❌ GET /api/mcps error:', error)
-    
-    return NextResponse.json({
-      success: false,
-      error: {
-        code: 'INTERNAL_ERROR',
-        message: error instanceof Error ? error.message : 'Failed to fetch MCP servers',
-      },
-      timestamp: new Date().toISOString(),
-    }, { status: 500 })
+    // 🛡️ GEMINI RECOMMENDATION 4: Secure error handling
+    return createSecureErrorResponse(
+      error, 
+      'GET /api/mcps - Failed to retrieve MCP servers', 
+      500,
+      'Unable to retrieve MCP servers at this time'
+    )
   }
 }
 
@@ -222,14 +220,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }, { status: 501 })
 
   } catch (error) {
-    return NextResponse.json({
-      success: false,
-      error: {
-        code: 'INTERNAL_ERROR', 
-        message: 'Server creation failed',
-      },
-      timestamp: new Date().toISOString(),
-    }, { status: 500 })
+    // 🛡️ GEMINI RECOMMENDATION 4: Secure error handling  
+    return createSecureErrorResponse(
+      error,
+      'POST /api/mcps - Failed to process server addition',
+      500,
+      'Unable to process server addition request'
+    )
   }
 }
 

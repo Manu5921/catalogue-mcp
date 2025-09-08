@@ -3,9 +3,11 @@
  * 
  * Gestionnaire de connexions aux serveurs MCP avec retry et timeout
  * Implémente le protocole MCP 0.1.0 avec health checks
+ * 🛡️ Includes Gemini-recommended security configuration
  */
 
 import type { McpServer, HealthCheck } from '@/types/mcp'
+import { validateUrl, getSecurityConfig } from '@/config/security'
 
 export interface McpConnectionOptions {
   readonly timeout?: number // Default 30s
@@ -124,29 +126,31 @@ export class McpConnectionManager {
     // Parse URL to determine connection method
     const url = new URL(serverUrl)
     
-    // 🔒 SECURITY GATE: Only allow secure protocols (Jules CATA-006)
-    if (url.protocol === 'http:') {
+    // 🛡️ GEMINI RECOMMENDATIONS 2 & 3: Advanced security policy with allow-list
+    const validation = validateUrl(serverUrl)
+    
+    if (!validation.allowed) {
       return {
         success: false,
-        error: 'Insecure HTTP protocol not allowed. Use HTTPS instead for security.',
+        error: validation.reason,
         responseTime: 0,
       }
     }
     
-    if (url.protocol === 'ws:') {
-      return {
-        success: false,
-        error: 'Insecure WebSocket protocol not allowed. Use WSS instead for security.',
-        responseTime: 0,
+    // Log security warnings if configured
+    if (validation.warning) {
+      const securityConfig = getSecurityConfig()
+      if (securityConfig.logSecurityWarnings) {
+        console.warn(`[SECURITY] ${validation.warning}`)
       }
     }
     
-    // Allow only secure protocols
-    if (url.protocol === 'https:') {
+    // Route to appropriate connection method
+    if (url.protocol === 'https:' || url.protocol === 'http:') {
       return this.connectHttp(serverUrl, timeout)
     }
     
-    if (url.protocol === 'wss:') {
+    if (url.protocol === 'wss:' || url.protocol === 'ws:') {
       return this.connectWebSocket(serverUrl, timeout)
     }
     

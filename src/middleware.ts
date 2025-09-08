@@ -63,18 +63,16 @@ export async function middleware(request: NextRequest) {
     // Initialize Supabase client
     const supabase = createMiddlewareClient({ req: request, res: response })
 
-    // Check if route is public
+    // 🛡️ GEMINI RECOMMENDATION 1: Deny by Default
+    // Check if route is explicitly public
     if (PUBLIC_ROUTES.has(pathname)) {
       // Public route avec logging sécurité
       console.log(`[SECURITY] Public route accessed: ${pathname} from ${request.ip || 'unknown'}`)
       return response
     }
 
-    // Check if route needs protection
-    const needsAuth = PROTECTED_ROUTES_PATTERNS.some(pattern => pattern.test(pathname))
-    if (!needsAuth) {
-      return response
-    }
+    // 🔒 SECURITY: All other API routes require authentication (deny by default)
+    // This is safer than maintaining PROTECTED_ROUTES_PATTERNS which could miss new routes
 
     // Get user session
     const {
