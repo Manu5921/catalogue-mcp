@@ -114,6 +114,7 @@ export class McpConnectionManager {
 
   /**
    * Tentative de connexion unique
+   * 🛡️ SECURITY: Force HTTPS/WSS only (CATA-006 & CATA-007)
    */
   private async attemptConnection(
     serverUrl: string,
@@ -123,17 +124,35 @@ export class McpConnectionManager {
     // Parse URL to determine connection method
     const url = new URL(serverUrl)
     
-    if (url.protocol === 'http:' || url.protocol === 'https:') {
+    // 🔒 SECURITY GATE: Only allow secure protocols (Jules CATA-006)
+    if (url.protocol === 'http:') {
+      return {
+        success: false,
+        error: 'Insecure HTTP protocol not allowed. Use HTTPS instead for security.',
+        responseTime: 0,
+      }
+    }
+    
+    if (url.protocol === 'ws:') {
+      return {
+        success: false,
+        error: 'Insecure WebSocket protocol not allowed. Use WSS instead for security.',
+        responseTime: 0,
+      }
+    }
+    
+    // Allow only secure protocols
+    if (url.protocol === 'https:') {
       return this.connectHttp(serverUrl, timeout)
     }
     
-    if (url.protocol === 'ws:' || url.protocol === 'wss:') {
+    if (url.protocol === 'wss:') {
       return this.connectWebSocket(serverUrl, timeout)
     }
     
     return {
       success: false,
-      error: `Unsupported protocol: ${url.protocol}`,
+      error: `Unsupported protocol: ${url.protocol}. Only HTTPS and WSS are allowed.`,
       responseTime: 0,
     }
   }

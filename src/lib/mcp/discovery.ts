@@ -77,12 +77,13 @@ export class McpDiscoveryService {
   ]
 
   // Serveurs MCP connus pour tests
+  // 🛡️ SECURITY: Updated to HTTPS only (Jules CATA-006)
   private readonly knownServers = [
-    'http://localhost:8051', // Archon
-    'http://localhost:8052', // Context7
-    'http://localhost:8053', // Serena
-    'http://localhost:8054', // GitHub MCP
-    'http://localhost:8055', // Jules
+    'https://localhost:8051', // Archon
+    'https://localhost:8052', // Context7
+    'https://localhost:8053', // Serena
+    'https://localhost:8054', // GitHub MCP
+    'https://localhost:8055', // Jules
   ]
 
   static getInstance(): McpDiscoveryService {
@@ -139,7 +140,7 @@ export class McpDiscoveryService {
 
       // Test common ports on localhost
       for (const port of portRanges) {
-        const url = `http://localhost:${port}`
+        const url = `https://localhost:${port}`
         if (!urls.includes(url)) {
           urls.push(url)
         }
@@ -147,7 +148,7 @@ export class McpDiscoveryService {
 
       // Test 127.0.0.1 variants
       for (const port of portRanges.slice(0, 5)) { // Limit to avoid too many tests
-        urls.push(`http://127.0.0.1:${port}`)
+        urls.push(`https://127.0.0.1:${port}`)
       }
     }
 
