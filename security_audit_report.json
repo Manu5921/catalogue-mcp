@@ -1,0 +1,328 @@
+{
+  "audit_summary": {
+    "total_issues": 11,
+    "critical": 4,
+    "high": 3,
+    "medium": 2,
+    "low": 2,
+    "info": 0
+  },
+  "executive_summary": "L'audit de sécurité du Catalogue MCP a révélé plusieurs vulnérabilités critiques et élevées qui nécessitent une attention immédiate. Les problèmes les plus graves concernent un manque systémique de contrôle d'accès à l'API, des failles fondamentales dans la sécurité du protocole MCP, et des dépendances logicielles critiques obsolètes. Ces vulnérabilités exposent l'application à des risques de fuite de données, de déni de service (DoS), et potentiellement d'exécution de code non autorisé. Il est impératif de mettre en œuvre des mécanismes d'authentification et d'autorisation, de sécuriser les connexions MCP, et de mettre à jour les dépendances avant toute mise en production.",
+  "vulnerabilities": [
+    {
+      "id": "CATA-001",
+      "title": "Absence de Contrôle d'Accès sur l'API des Serveurs MCP",
+      "severity": "CRITICAL",
+      "category": "A01 - Broken Access Control",
+      "description": "Les endpoints GET /api/mcps et GET /api/mcps/[id] sont publics, sans aucune authentification ou autorisation. Cela permet à n'importe qui de lister tous les serveurs MCP découverts et d'obtenir des informations détaillées sur chacun d'eux, exposant ainsi l'infrastructure réseau et les technologies utilisées.",
+      "location": {
+        "file": "src/app/api/mcps/route.ts",
+        "line_range": "27-217",
+        "function": "GET"
+      },
+      "impact": "Exposition complète de l'infrastructure des serveurs MCP, aide à la reconnaissance pour un attaquant, fuite d'informations potentiellement sensibles sur les capacités de chaque serveur.",
+      "likelihood": "HIGH",
+      "remediation": {
+        "priority": "IMMEDIATE",
+        "effort": "HIGH",
+        "steps": [
+          "Implémenter un middleware d'authentification (par exemple, en utilisant les helpers Supabase) pour protéger toutes les routes API par défaut.",
+          "Exiger une session utilisateur authentifiée pour accéder à ces endpoints.",
+          "Envisager d'introduire des rôles (par exemple, 'admin') pour restreindre l'accès aux fonctions de gestion."
+        ],
+        "code_example": "// Exemple de protection de route dans un middleware.ts\nimport { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';\nimport { NextResponse } from 'next/server';\n\nexport async function middleware(req) {\n  const res = NextResponse.next();\n  const supabase = createMiddlewareClient({ req, res });\n  const { data: { session } } = await supabase.auth.getSession();\n  if (!session && req.nextUrl.pathname.startsWith('/api/')) {\n    return new NextResponse('Authentication required', { status: 401 });\n  }\n  return res;\n}"
+      }
+    },
+    {
+      "id": "CATA-004",
+      "title": "Fonction d'Administration de Monitoring Publique et Dangereuse",
+      "severity": "CRITICAL",
+      "category": "A01 - Broken Access Control",
+      "description": "L'endpoint POST /api/health/start est public. Il permet à n'importe qui de déclencher une découverte de serveurs sur le réseau et de démarrer le service de monitoring. Cette fonction peut être abusée pour lancer des attaques par Déni de Service (DoS) en la déclenchant de manière répétée, ou pour effectuer une reconnaissance du réseau interne.",
+      "location": {
+        "file": "src/app/api/health/route.ts",
+        "line_range": "95-163",
+        "function": "POST"
+      },
+      "impact": "Risque élevé de Déni de Service (DoS) sur l'application. Potentiel de scan de ports et de reconnaissance du réseau interne initié par un attaquant externe.",
+      "likelihood": "HIGH",
+      "remediation": {
+        "priority": "IMMEDIATE",
+        "effort": "MEDIUM",
+        "steps": [
+          "Restreindre l'accès à cet endpoint aux utilisateurs ayant un rôle d'administrateur.",
+          "Implémenter une protection par authentification via le middleware.",
+          "Mettre en place une limitation de débit (rate limiting) pour éviter les abus, même par des utilisateurs authentifiés."
+        ],
+        "code_example": "// Dans la route API\n// const { session } = await getUserSession(); // Obtenir la session\n// if (!isAdmin(session)) { return new NextResponse('Forbidden', { status: 403 }); }\n// ...logique de la fonction"
+      }
+    },
+    {
+      "id": "CATA-009",
+      "title": "Confiance Implicite aux Serveurs Découverts (Trust on First Use)",
+      "severity": "CRITICAL",
+      "category": "MCP Protocol Security",
+      "description": "Le service de découverte (`discovery.ts`) scanne les ports locaux et se connecte à n'importe quel service répondant comme un serveur MCP. Il n'y a aucun mécanisme pour vérifier l'identité ou l'intégrité du serveur découvert. Un attaquant peut lancer un faux serveur MCP sur un port attendu pour intercepter les connexions ou exécuter des commandes malveillantes.",
+      "location": {
+        "file": "src/lib/mcp/discovery.ts",
+        "line_range": "153-182",
+        "function": "testSingleServer"
+      },
+      "impact": "Permet des attaques de type Man-in-the-Middle (MitM), l'usurpation de serveurs MCP légitimes, et potentiellement l'exécution de code ou le vol de données si l'application interagit avec un serveur malveillant.",
+      "likelihood": "MEDIUM",
+      "remediation": {
+        "priority": "IMMEDIATE",
+        "effort": "HIGH",
+        "steps": [
+          "Ne jamais faire confiance automatiquement à un serveur découvert.",
+          "Implémenter un processus de vérification manuelle où un administrateur doit approuver tout nouveau serveur avant qu'il n'apparaisse dans le catalogue public.",
+          "Pour les connexions, utiliser une liste blanche de serveurs de confiance avec leur certificat ou leur clé publique (certificate pinning)."
+        ],
+        "code_example": "// Pseudo-code\n// const discoveredServer = await testSingleServer(url);\n// if (discoveredServer) {\n//   await database.pending_servers.insert({ ...discoveredServer, approved: false });\n//   // Ne pas l'ajouter au catalogue public avant approbation manuelle.\n// }"
+      }
+    },
+    {
+      "id": "CATA-010",
+      "title": "Dépendances Critiques Obsolètes avec Vulnérabilités Connues",
+      "severity": "CRITICAL",
+      "category": "A08 - Software and Data Integrity",
+      "description": "L'audit des dépendances avec 'pnpm audit' a révélé 8 vulnérabilités, dont une critique dans le package 'next' (Authorization Bypass in Next.js Middleware, GHSA-f82v-jwr5-mffw). L'application utilise la version 15.0.3 de Next.js, qui est vulnérable.",
+      "location": {
+        "file": "package.json",
+        "line_range": "N/A",
+        "function": "N/A"
+      },
+      "impact": "L'exploitation de ces vulnérabilités pourrait permettre un contournement des contrôles d'accès, un déni de service, ou d'autres attaques, compromettant l'intégrité et la disponibilité de l'application.",
+      "likelihood": "HIGH",
+      "remediation": {
+        "priority": "IMMEDIATE",
+        "effort": "MEDIUM",
+        "steps": [
+          "Mettre à jour le package 'next' vers une version patchée (>= 15.2.3 pour la vulnérabilité critique).",
+          "Exécuter 'pnpm update' pour mettre à jour les autres dépendances mineures.",
+          "Relancer 'pnpm audit' pour confirmer que les vulnérabilités sont corrigées.",
+          "Intégrer 'pnpm audit' dans le pipeline de CI/CD pour détecter les nouvelles vulnérabilités automatiquement."
+        ],
+        "code_example": "pnpm up next@latest"
+      }
+    },
+    {
+      "id": "CATA-006",
+      "title": "Utilisation de Protocoles de Transport Non Chiffrés",
+      "severity": "HIGH",
+      "category": "A02 - Cryptographic Failures",
+      "description": "Le gestionnaire de connexion MCP (`connection.ts`) autorise explicitement les connexions via 'http:' et 'ws:'. Toute donnée échangée sur ces canaux, y compris potentiellement des informations sensibles à l'avenir, est transmise en clair et vulnérable à l'interception (MitM).",
+      "location": {
+        "file": "src/lib/mcp/connection.ts",
+        "line_range": "119-127",
+        "function": "attemptConnection"
+      },
+      "impact": "Exposition des données de communication à des attaques Man-in-the-Middle (MitM), permettant l'écoute et la manipulation du trafic.",
+      "likelihood": "HIGH",
+      "remediation": {
+        "priority": "SOON",
+        "effort": "MEDIUM",
+        "steps": [
+          "Modifier la logique pour n'autoriser que les protocoles sécurisés 'https:' et 'wss:'.",
+          "Rejeter ou avertir explicitement lors de la découverte d'un serveur utilisant un protocole non sécurisé.",
+          "Mettre à jour la liste des serveurs connus (`knownServers` dans `discovery.ts`) pour utiliser 'https://' ou 'wss://'."
+        ],
+        "code_example": "// Dans attemptConnection\nif (url.protocol === 'https:' || url.protocol === 'wss:') {\n  // Procéder\n} else {\n  return { success: false, error: 'Insecure protocol not allowed' };\n}"
+      }
+    },
+    {
+      "id": "CATA-007",
+      "title": "Absence de Validation des Certificats de Serveur",
+      "severity": "HIGH",
+      "category": "A02 - Cryptographic Failures",
+      "description": "L'application ne valide pas les certificats SSL/TLS des serveurs MCP auxquels elle se connecte. Elle acceptera donc n'importe quel certificat, y compris les certificats auto-signés ou invalides, ce qui rend les attaques MitM triviales à exécuter même sur des connexions HTTPS/WSS.",
+      "location": {
+        "file": "src/lib/mcp/connection.ts",
+        "line_range": "134-150",
+        "function": "connectHttp"
+      },
+      "impact": "Annule complètement les avantages de la sécurité du transport (HTTPS/WSS), rendant l'application vulnérable aux attaques MitM.",
+      "likelihood": "HIGH",
+      "remediation": {
+        "priority": "SOON",
+        "effort": "HIGH",
+        "steps": [
+          "Lors de la connexion à un serveur, vérifier que le certificat est valide et émis par une autorité de confiance.",
+          "Pour une sécurité accrue, implémenter le 'certificate pinning' pour les serveurs connus et de confiance, en stockant une empreinte de leur certificat attendu."
+        ],
+        "code_example": "// En Node.js, on peut utiliser un https.Agent personnalisé\n// const agent = new https.Agent({ ca: [fs.readFileSync('path/to/trusted_ca.pem')] });\n// fetch(url, { agent });\n// En browser, c'est plus complexe et repose sur la confiance du navigateur, mais le pinning n'est pas directement possible via fetch."
+      }
+    },
+    {
+      "id": "CATA-005",
+      "title": "Arrêt du Service de Monitoring Accessible Publiquement",
+      "severity": "HIGH",
+      "category": "A01 - Broken Access Control",
+      "description": "L'endpoint DELETE /api/health/stop est public, permettant à quiconque d'arrêter le service de monitoring de santé des serveurs. Cela peut aveugler les administrateurs sur l'état de l'infrastructure.",
+      "location": {
+        "file": "src/app/api/health/route.ts",
+        "line_range": "168-188",
+        "function": "DELETE"
+      },
+      "impact": "Perte de visibilité sur la santé de l'infrastructure, masquage potentiel d'autres attaques ou pannes.",
+      "likelihood": "MEDIUM",
+      "remediation": {
+        "priority": "IMMEDIATE",
+        "effort": "MEDIUM",
+        "steps": [
+          "Restreindre l'accès à cet endpoint aux utilisateurs ayant un rôle d'administrateur.",
+          "Implémenter une protection par authentification via le middleware."
+        ],
+        "code_example": "// Voir remédiation pour CATA-004"
+      }
+    },
+    {
+      "id": "CATA-008",
+      "title": "Exposition Potentielle d'une Variable d'Environnement Côté Client",
+      "severity": "MEDIUM",
+      "category": "A02 - Cryptographic Failures",
+      "description": "Le fichier 'next.config.ts' expose la variable d'environnement 'CUSTOM_KEY' au code côté client. Si cette variable contient une information sensible en production (clé API, secret), elle sera accessible à tous les visiteurs du site.",
+      "location": {
+        "file": "next.config.ts",
+        "line_range": "106-108",
+        "function": "N/A"
+      },
+      "impact": "Fuite d'informations sensibles, vol de clés API, contournement de la sécurité si la clé est utilisée pour des contrôles côté client.",
+      "likelihood": "LOW",
+      "remediation": {
+        "priority": "SOON",
+        "effort": "LOW",
+        "steps": [
+          "Vérifier l'utilité et la sensibilité de la variable 'CUSTOM_KEY'.",
+          "Si elle est sensible et utilisée uniquement côté serveur, la retirer du bloc 'env' dans 'next.config.ts'.",
+          "Si elle est nécessaire côté client, s'assurer qu'elle ne contient aucune information sensible et la renommer avec le préfixe 'NEXT_PUBLIC_' pour plus de clarté."
+        ],
+        "code_example": "// next.config.ts\n// Retirer la section `env` si la clé est sensible\n// env: {\n//   CUSTOM_KEY: process.env.CUSTOM_KEY, // <-- A RETIRER\n// }"
+      }
+    },
+    {
+      "id": "CATA-011",
+      "title": "Absence d'En-tête de Sécurité Content-Security-Policy (CSP)",
+      "severity": "MEDIUM",
+      "category": "Client-Side Security",
+      "description": "L'application ne définit pas d'en-tête Content-Security-Policy (CSP). Un CSP est une mesure de défense en profondeur efficace pour atténuer les attaques par injection de contenu, notamment les Cross-Site Scripting (XSS).",
+      "location": {
+        "file": "next.config.ts",
+        "line_range": "63-99",
+        "function": "headers"
+      },
+      "impact": "Risque accru d'attaques XSS réussies si une vulnérabilité d'injection de contenu était découverte dans un composant React.",
+      "likelihood": "LOW",
+      "remediation": {
+        "priority": "LATER",
+        "effort": "MEDIUM",
+        "steps": [
+          "Définir une politique CSP stricte dans 'next.config.ts'.",
+          "Commencer par une politique restrictive et l'élargir au besoin : 'default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: avatars.githubusercontent.com;'.",
+          "Utiliser des nonces ou des hashes pour les scripts inline si nécessaire, en évitant 'unsafe-inline' en production."
+        ],
+        "code_example": "// Dans next.config.ts headers\n{\n  key: 'Content-Security-Policy',\n  value: \"default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; ...\", // A adapter\n}"
+      }
+    },
+    {
+      "id": "CATA-003",
+      "title": "Fuite d'Informations via l'API de Santé",
+      "severity": "LOW",
+      "category": "A01 - Broken Access Control",
+      "description": "L'endpoint GET /api/health, bien que souvent public, expose des informations détaillées sur l'état du monitoring, y compris le nombre de serveurs actifs, sains, et les alertes récentes. Ces informations peuvent aider un attaquant à comprendre l'état et l'échelle de l'infrastructure interne.",
+      "location": {
+        "file": "src/app/api/health/route.ts",
+        "line_range": "20-89",
+        "function": "GET"
+      },
+      "impact": "Fournit des informations opérationnelles à un attaquant potentiel, ce qui peut aider à planifier d'autres attaques.",
+      "likelihood": "LOW",
+      "remediation": {
+        "priority": "LATER",
+        "effort": "LOW",
+        "steps": [
+          "Réduire la quantité d'informations renvoyées par l'endpoint public (par exemple, un simple statut 'OK' ou 'DEGRADED').",
+          "Créer un endpoint de santé détaillé distinct qui, lui, serait protégé par une authentification administrateur."
+        ],
+        "code_example": "// Endpoint public\nreturn NextResponse.json({ status: 'healthy' });\n\n// Endpoint admin /api/health/details\n// ...protégé par authentification\nreturn NextResponse.json({ detailed_summary });"
+      }
+    },
+    {
+      "id": "CATA-012",
+      "title": "Manque de Sécurité de Type dans la Gestion des Données API",
+      "severity": "LOW",
+      "category": "TypeScript Security",
+      "description": "L'utilisation du type 'any' lors de la manipulation des réponses des serveurs MCP (par exemple, pour 'serverInfo' dans /api/mcps/[id]/route.ts) supprime les garanties de sécurité de type de TypeScript. Une réponse malformée d'un serveur pourrait entraîner des erreurs d'exécution ou un comportement inattendu.",
+      "location": {
+        "file": "src/app/api/mcps/[id]/route.ts",
+        "line_range": "104-105",
+        "function": "buildServerDetail"
+      },
+      "impact": "Augmente le risque d'erreurs d'exécution, de failles logiques, et rend le code plus difficile à maintenir et à sécuriser.",
+      "likelihood": "LOW",
+      "remediation": {
+        "priority": "LATER",
+        "effort": "MEDIUM",
+        "steps": [
+          "Définir des types TypeScript stricts pour les objets de réponse de l'API MCP.",
+          "Utiliser une librairie de validation à l'exécution comme Zod pour parser et valider les réponses externes avant de les utiliser dans l'application.",
+          "Remplacer progressivement tous les usages de 'any' par des types spécifiques ou 'unknown' avec des vérifications de type."
+        ],
+        "code_example": "import { z } from 'zod';\n\nconst ServerInfoSchema = z.object({\n  id: z.string(),\n  name: z.string(),\n  // ... autres champs\n});\n\nconst parsedInfo = ServerInfoSchema.parse(untrustedData);"
+      }
+    }
+  ],
+  "security_recommendations": [
+    {
+      "category": "Architecture",
+      "priority": "HIGH",
+      "recommendation": "Mettre en place une couche d'authentification et d'autorisation centralisée via un middleware Next.js. Toutes les routes API, en particulier celles ayant un impact administratif, doivent être protégées par défaut.",
+      "rationale": "L'absence actuelle de contrôle d'accès est la faille la plus critique de l'application. Un middleware assure une protection cohérente et évite les oublis de sécurité sur les nouveaux endpoints."
+    },
+    {
+      "category": "Dépendances",
+      "priority": "HIGH",
+      "recommendation": "Mettre en place un processus de gestion des vulnérabilités des dépendances, en intégrant 'pnpm audit' dans le pipeline de CI/CD. La mise à jour des dépendances critiques doit être une priorité.",
+      "rationale": "Les vulnérabilités dans les frameworks sous-jacents comme Next.js peuvent introduire des failles critiques qui sont difficiles à atténuer au niveau du code de l'application."
+    },
+    {
+      "category": "Protocole MCP",
+      "priority": "HIGH",
+      "recommendation": "Abandonner le modèle de 'confiance à la première utilisation'. Implémenter un système où les serveurs découverts nécessitent une approbation manuelle par un administrateur avant d'être considérés comme fiables et accessibles.",
+      "rationale": "Le modèle de confiance actuel est fondamentalement non sécurisé et permet des attaques d'usurpation d'identité et de MitM."
+    },
+    {
+      "category": "Configuration",
+      "priority": "MEDIUM",
+      "recommendation": "Ajouter un en-tête Content-Security-Policy (CSP) pour renforcer la sécurité côté client contre les attaques XSS.",
+      "rationale": "Le CSP est une défense en profondeur standard pour les applications web modernes, réduisant la surface d'attaque pour les injections de contenu."
+    }
+  ],
+  "mcp_specific_security": [
+    {
+      "area": "Connection Management",
+      "issues": [
+        "Les connexions sont autorisées via des protocoles non chiffrés (HTTP, WS).",
+        "Les certificats des serveurs distants ne sont pas validés, ce qui permet des attaques MitM.",
+        "Il n'y a pas de gestion des secrets de connexion (car aucune authentification n'est implémentée)."
+      ],
+      "recommendations": [
+        "Forcer l'utilisation de HTTPS et WSS.",
+        "Implémenter la validation des certificats et le 'certificate pinning' pour les serveurs de confiance.",
+        "Concevoir un système sécurisé pour le stockage et la transmission des jetons d'authentification lorsque l'authentification sera ajoutée."
+      ]
+    },
+    {
+      "area": "Discovery and Trust",
+      "issues": [
+        "Tout serveur répondant sur un port attendu est automatiquement considéré comme un serveur MCP valide.",
+        "Il n'y a pas de distinction claire entre les serveurs vérifiés et non vérifiés lors de l'accès."
+      ],
+      "recommendations": [
+        "Introduire un état 'en attente de vérification' pour les serveurs découverts.",
+        "Exiger une action manuelle d'un administrateur pour promouvoir un serveur au statut 'vérifié' et le rendre public.",
+        "Afficher des avertissements clairs dans l'interface utilisateur lors de l'interaction avec des serveurs non vérifiés."
+      ]
+    }
+  ]
+}
