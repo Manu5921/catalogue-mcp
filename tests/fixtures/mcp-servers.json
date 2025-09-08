@@ -1,0 +1,385 @@
+{
+  "mockServers": [
+    {
+      "id": "context7-docs",
+      "name": "Context7 Documentation Server",
+      "description": "Provides up-to-date documentation and code examples for popular libraries and frameworks",
+      "version": "1.2.0",
+      "author": "Context7 Team", 
+      "category": "documentation",
+      "tags": ["documentation", "libraries", "examples", "developer-tools"],
+      "repositoryUrl": "https://github.com/context7/mcp-server",
+      "documentationUrl": "https://docs.context7.dev",
+      "licenseType": "MIT",
+      "installationMethod": "docker",
+      "supportedPlatforms": ["docker"],
+      "protocolVersion": "0.1.0",
+      "capabilities": {
+        "tools": {
+          "listChanged": true
+        },
+        "resources": {
+          "subscribe": true,
+          "listChanged": true
+        }
+      },
+      "tools": [
+        {
+          "name": "resolve-library-id",
+          "description": "Resolves a package/product name to a Context7-compatible library ID",
+          "parameters": [
+            {
+              "name": "libraryName", 
+              "type": "string",
+              "required": true,
+              "description": "Library name to search for"
+            }
+          ],
+          "category": "search",
+          "riskLevel": "safe"
+        },
+        {
+          "name": "get-library-docs",
+          "description": "Fetches up-to-date documentation for a library",
+          "parameters": [
+            {
+              "name": "context7CompatibleLibraryID",
+              "type": "string", 
+              "required": true,
+              "description": "Exact Context7-compatible library ID"
+            },
+            {
+              "name": "tokens",
+              "type": "number",
+              "required": false,
+              "description": "Maximum number of tokens to retrieve"
+            }
+          ],
+          "category": "documentation",
+          "riskLevel": "safe"
+        }
+      ],
+      "healthStatus": "healthy",
+      "popularityScore": 92,
+      "qualityScore": 89,
+      "reviewCount": 45,
+      "averageRating": 4.6,
+      "isVerified": true,
+      "isDeprecated": false,
+      "createdAt": "2024-01-15T10:30:00Z",
+      "updatedAt": "2024-12-01T14:20:00Z"
+    },
+    {
+      "id": "serena-code",
+      "name": "Serena Code Analysis Server", 
+      "description": "Advanced code analysis, symbol manipulation, and project memory management for development workflows",
+      "version": "2.1.3",
+      "author": "Serena Development Team",
+      "category": "dev-tools",
+      "tags": ["code-analysis", "refactoring", "symbols", "memory"],
+      "repositoryUrl": "https://github.com/serena/mcp-server",
+      "documentationUrl": "https://serena.dev/docs",
+      "licenseType": "Apache-2.0",
+      "installationMethod": "pip",
+      "packageName": "serena-mcp",
+      "supportedPlatforms": ["python"],
+      "protocolVersion": "0.1.0",
+      "capabilities": {
+        "tools": {
+          "listChanged": true
+        },
+        "resources": {
+          "subscribe": false,
+          "listChanged": true  
+        },
+        "prompts": {
+          "listChanged": true
+        }
+      },
+      "tools": [
+        {
+          "name": "get_symbols_overview",
+          "description": "Gets an overview of symbols in a file or directory",
+          "parameters": [
+            {
+              "name": "relative_path",
+              "type": "string",
+              "required": true,
+              "description": "Path to file or directory"
+            }
+          ],
+          "category": "analysis",
+          "riskLevel": "safe"
+        },
+        {
+          "name": "find_symbol", 
+          "description": "Finds symbols matching a name pattern",
+          "parameters": [
+            {
+              "name": "name_path",
+              "type": "string",
+              "required": true,
+              "description": "Symbol name pattern to search for"
+            },
+            {
+              "name": "relative_path",
+              "type": "string", 
+              "required": false,
+              "description": "Restrict search to specific path"
+            }
+          ],
+          "category": "search",
+          "riskLevel": "safe"
+        },
+        {
+          "name": "replace_symbol_body",
+          "description": "Replaces the body of a symbol",
+          "parameters": [
+            {
+              "name": "name_path",
+              "type": "string",
+              "required": true,
+              "description": "Path to symbol to replace"
+            },
+            {
+              "name": "relative_path", 
+              "type": "string",
+              "required": true,
+              "description": "File containing the symbol"
+            },
+            {
+              "name": "body",
+              "type": "string",
+              "required": true,
+              "description": "New symbol body"
+            }
+          ],
+          "category": "modification",
+          "riskLevel": "medium"
+        }
+      ],
+      "healthStatus": "healthy",
+      "popularityScore": 87,
+      "qualityScore": 94,
+      "reviewCount": 67,
+      "averageRating": 4.8,
+      "isVerified": true,
+      "isDeprecated": false,
+      "createdAt": "2024-02-20T09:15:00Z",
+      "updatedAt": "2024-11-28T16:45:00Z"
+    },
+    {
+      "id": "archon-project",
+      "name": "Archon Project Management Server",
+      "description": "Comprehensive project management, task tracking, and RAG-powered knowledge base for development teams", 
+      "version": "3.0.1",
+      "author": "Archon Systems",
+      "category": "productivity",
+      "tags": ["project-management", "tasks", "rag", "knowledge-base"],
+      "repositoryUrl": "https://github.com/archon/mcp-server",
+      "documentationUrl": "https://archon.dev/mcp-docs",
+      "licenseType": "AGPL-3.0",
+      "installationMethod": "docker",
+      "dockerImage": "archon/mcp-server:latest",
+      "supportedPlatforms": ["docker", "node"],
+      "protocolVersion": "0.1.0", 
+      "capabilities": {
+        "tools": {
+          "listChanged": true
+        },
+        "resources": {
+          "subscribe": true,
+          "listChanged": true
+        },
+        "prompts": {
+          "listChanged": true
+        },
+        "experimental": {
+          "streaming": true,
+          "rag": true
+        }
+      },
+      "tools": [
+        {
+          "name": "create_project",
+          "description": "Creates a new project with AI assistance",
+          "parameters": [
+            {
+              "name": "title",
+              "type": "string",
+              "required": true,
+              "description": "Project title"
+            },
+            {
+              "name": "description", 
+              "type": "string",
+              "required": false,
+              "description": "Project description"
+            }
+          ],
+          "category": "management",
+          "riskLevel": "safe"
+        },
+        {
+          "name": "perform_rag_query",
+          "description": "Search knowledge base using RAG",
+          "parameters": [
+            {
+              "name": "query",
+              "type": "string", 
+              "required": true,
+              "description": "Search query"
+            },
+            {
+              "name": "match_count",
+              "type": "number",
+              "required": false,
+              "description": "Maximum results to return"
+            }
+          ],
+          "category": "search",
+          "riskLevel": "safe"
+        },
+        {
+          "name": "search_code_examples",
+          "description": "Search for relevant code examples",
+          "parameters": [
+            {
+              "name": "query",
+              "type": "string",
+              "required": true,
+              "description": "Code example search query"
+            }
+          ],
+          "category": "search", 
+          "riskLevel": "safe"
+        }
+      ],
+      "healthStatus": "healthy",
+      "popularityScore": 95,
+      "qualityScore": 91,
+      "reviewCount": 123,
+      "averageRating": 4.7,
+      "isVerified": true,
+      "isDeprecated": false,
+      "createdAt": "2024-01-10T11:00:00Z",
+      "updatedAt": "2024-12-05T10:30:00Z"
+    },
+    {
+      "id": "filesystem-basic",
+      "name": "Basic Filesystem MCP",
+      "description": "Simple filesystem operations with read/write capabilities for file management tasks",
+      "version": "1.0.5", 
+      "author": "Open Source Community",
+      "category": "filesystem",
+      "tags": ["filesystem", "files", "basic", "utilities"],
+      "repositoryUrl": "https://github.com/mcp-community/filesystem-basic",
+      "licenseType": "MIT",
+      "installationMethod": "npm",
+      "packageName": "@mcp/filesystem-basic",
+      "supportedPlatforms": ["node"],
+      "protocolVersion": "0.1.0",
+      "capabilities": {
+        "tools": {
+          "listChanged": false
+        },
+        "resources": {
+          "subscribe": true,
+          "listChanged": true
+        }
+      },
+      "tools": [
+        {
+          "name": "read_file",
+          "description": "Read contents of a file",
+          "parameters": [
+            {
+              "name": "path",
+              "type": "string",
+              "required": true,
+              "description": "Path to file"
+            }
+          ],
+          "category": "filesystem",
+          "riskLevel": "low"
+        },
+        {
+          "name": "write_file",
+          "description": "Write content to a file",
+          "parameters": [
+            {
+              "name": "path", 
+              "type": "string",
+              "required": true,
+              "description": "Path to file"
+            },
+            {
+              "name": "content",
+              "type": "string", 
+              "required": true,
+              "description": "File content"
+            }
+          ],
+          "category": "filesystem",
+          "riskLevel": "medium"
+        }
+      ],
+      "healthStatus": "degraded",
+      "popularityScore": 65,
+      "qualityScore": 72,
+      "reviewCount": 28,
+      "averageRating": 3.9,
+      "isVerified": false,
+      "isDeprecated": false,
+      "createdAt": "2024-03-01T14:20:00Z",
+      "updatedAt": "2024-10-15T09:10:00Z"
+    }
+  ],
+  "healthChecks": [
+    {
+      "serverId": "context7-docs",
+      "timestamp": "2024-12-08T10:00:00Z",
+      "status": "healthy",
+      "responseTime": 120,
+      "details": {
+        "connectionTime": 45,
+        "toolsListTime": 50,
+        "resourcesListTime": 25
+      }
+    },
+    {
+      "serverId": "serena-code", 
+      "timestamp": "2024-12-08T10:00:00Z",
+      "status": "healthy",
+      "responseTime": 95,
+      "details": {
+        "connectionTime": 30,
+        "toolsListTime": 40,
+        "resourcesListTime": 25
+      }
+    },
+    {
+      "serverId": "archon-project",
+      "timestamp": "2024-12-08T10:00:00Z", 
+      "status": "healthy",
+      "responseTime": 180,
+      "details": {
+        "connectionTime": 60,
+        "toolsListTime": 85,
+        "resourcesListTime": 35
+      }
+    },
+    {
+      "serverId": "filesystem-basic",
+      "timestamp": "2024-12-08T10:00:00Z",
+      "status": "degraded", 
+      "responseTime": 2500,
+      "details": {
+        "connectionTime": 1200,
+        "toolsListTime": 800,
+        "resourcesListTime": 500
+      },
+      "error": "High response times detected"
+    }
+  ]
+}

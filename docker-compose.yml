@@ -1,0 +1,248 @@
+version: '3.8'
+
+services:
+  # ============================================================================
+  # PostgreSQL Database
+  # ============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: catalogue-mcp-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: catalogue_mcp
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres_dev_password_change_in_production}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    networks:
+      - catalogue-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d catalogue_mcp"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ============================================================================
+  # Redis Cache (Optional - for caching and session storage)
+  # ============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: catalogue-mcp-redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD:-redis_dev_password}
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - catalogue-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ============================================================================
+  # Next.js Application (Development)
+  # ============================================================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: catalogue-mcp-app
+    restart: unless-stopped
+    environment:
+      # Database
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres_dev_password_change_in_production}@postgres:5432/catalogue_mcp
+      
+      # Supabase (use local PostgreSQL in development)
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-http://localhost:3000}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
+      
+      # Redis
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_dev_password}@redis:6379
+      
+      # Application
+      NODE_ENV: development
+      PORT: 3000
+      
+      # Security
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-dev_secret_change_in_production}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      
+      # External APIs
+      GITHUB_TOKEN: ${GITHUB_TOKEN}
+      
+      # Monitoring
+      SENTRY_DSN: ${SENTRY_DSN}
+      
+      # Feature flags
+      ENABLE_HEALTH_MONITORING: ${ENABLE_HEALTH_MONITORING:-true}
+      ENABLE_ANALYTICS: ${ENABLE_ANALYTICS:-false}
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    volumes:
+      - .:/app:delegated
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - catalogue-network
+    # Only build and run in development
+    profiles:
+      - development
+
+  # ============================================================================
+  # Health Monitor Service (Background task runner)
+  # ============================================================================
+  health-monitor:
+    build:
+      context: .
+      dockerfile: Dockerfile.health-monitor
+    container_name: catalogue-mcp-health-monitor
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres_dev_password_change_in_production}@postgres:5432/catalogue_mcp
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_dev_password}@redis:6379
+      HEALTH_CHECK_INTERVAL: ${HEALTH_CHECK_INTERVAL:-300} # 5 minutes
+      HEALTH_CHECK_TIMEOUT: ${HEALTH_CHECK_TIMEOUT:-30}    # 30 seconds
+      NODE_ENV: ${NODE_ENV:-development}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - catalogue-network
+    # Optional service - only for production or when explicitly enabled
+    profiles:
+      - production
+      - health-monitoring
+
+  # ============================================================================
+  # MinIO (S3-compatible storage for local development)
+  # ============================================================================
+  minio:
+    image: minio/minio:latest
+    container_name: catalogue-mcp-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - catalogue-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    # Optional service - only for local development
+    profiles:
+      - storage
+
+  # ============================================================================
+  # Nginx (Reverse Proxy for Production)
+  # ============================================================================
+  nginx:
+    image: nginx:alpine
+    container_name: catalogue-mcp-nginx
+    restart: unless-stopped
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - app
+    networks:
+      - catalogue-network
+    # Only for production
+    profiles:
+      - production
+
+  # ============================================================================
+  # Monitoring Stack (Optional)
+  # ============================================================================
+  
+  # Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: catalogue-mcp-prometheus
+    restart: unless-stopped
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - catalogue-network
+    profiles:
+      - monitoring
+
+  # Grafana for metrics visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: catalogue-mcp-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin123}
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+    networks:
+      - catalogue-network
+    profiles:
+      - monitoring
+
+# ============================================================================
+# Networks
+# ============================================================================
+networks:
+  catalogue-network:
+    driver: bridge
+    name: catalogue-mcp-network
+
+# ============================================================================
+# Volumes
+# ============================================================================
+volumes:
+  postgres_data:
+    name: catalogue-mcp-postgres-data
+  redis_data:
+    name: catalogue-mcp-redis-data
+  minio_data:
+    name: catalogue-mcp-minio-data
+  prometheus_data:
+    name: catalogue-mcp-prometheus-data
+  grafana_data:
+    name: catalogue-mcp-grafana-data

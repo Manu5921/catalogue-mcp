@@ -1,0 +1,11 @@
+.next
+dist
+coverage
+node_modules
+types/generated
+*.config.js
+*.config.ts
+public/
+out/
+build/
+.vercel/
