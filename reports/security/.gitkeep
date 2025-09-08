@@ -1,0 +1,12 @@
+# Security Reports Directory
+
+This directory contains security audit reports from Jules AI and other security tools.
+
+## Structure
+- `audit-jules-YYYY-MM-DD.json` - Jules AI security audit reports
+- `audit-request.json` - Security audit requests for CI/CD
+- `vulnerability-tracking.json` - Tracking of security issues resolution
+
+## CI/CD Integration
+This directory is monitored by the CI/CD pipeline security gate.
+Reports are automatically processed to determine build success/failure based on security findings.

@@ -1,0 +1,37 @@
+{
+  "id": "audit-1757337695212",
+  "timestamp": "2025-09-08T13:21:35.212Z",
+  "scope": "full",
+  "options": {
+    "timeout": 14400000,
+    "methodologies": [
+      "OWASP_TOP_10_2021",
+      "MCP_PROTOCOL_SECURITY",
+      "NEXTJS_SECURITY_FRAMEWORK",
+      "E6_TESTING_VALIDATION"
+    ],
+    "focus": [
+      "authentication",
+      "mcp-connections",
+      "api-security"
+    ],
+    "compliance": [
+      "SOC2",
+      "GDPR_BASIC",
+      "SECURITY_BASELINE"
+    ]
+  },
+  "project_metadata": {
+    "root": "/Users/manu/Documents/DEV/catalogue-mcp2",
+    "include_patterns": [
+      "src/**/*.ts",
+      "src/**/*.tsx",
+      "scripts/**/*.js"
+    ],
+    "exclude_patterns": [
+      "**/*.test.ts",
+      "**/*.spec.ts",
+      "**/node_modules/**"
+    ]
+  }
+}
